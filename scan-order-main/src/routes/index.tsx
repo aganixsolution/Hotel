@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ChefHat, CreditCard, LayoutDashboard, QrCode, ScanLine } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowRight, ChefHat, CreditCard, LayoutDashboard, QrCode, ScanLine, Wifi } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,13 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Aganix — Scan, Order & Pay at Your Table" },
+      { title: "SaviRasa — Scan, Order & Pay at Your Table" },
       {
         name: "description",
         content:
-          "Aganix QR ordering for hotels and restaurants: scan the table QR, order from a live menu, pay online or at the counter.",
+          "SaviRasa QR ordering for hotels and restaurants: scan the table QR, order from a live menu, pay online or at the counter.",
       },
-      { property: "og:title", content: "Aganix — Scan, Order & Pay at Your Table" },
+      { property: "og:title", content: "SaviRasa — Scan, Order & Pay at Your Table" },
       {
         property: "og:description",
         content: "QR table ordering with live kitchen dashboard, menu management and printable table QR codes.",
@@ -40,7 +41,28 @@ function Home() {
   const tables = useStore(tablesStore);
   const hydrated = useHydrated();
   const firstTable = tables[0];
-  const demoUrl = hydrated && firstTable ? `${hotel.qrBaseUrl || window.location.origin}/menu/${firstTable.id}` : "";
+  const [networkUrl, setNetworkUrl] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/network-info")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.qrBaseUrl) {
+          setNetworkUrl(data.qrBaseUrl);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const effectiveBaseUrl =
+    hotel.qrBaseUrl ||
+    (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      ? networkUrl || window.location.origin
+      : typeof window !== "undefined"
+        ? window.location.origin
+        : "");
+
+  const demoUrl = hydrated && firstTable ? `${effectiveBaseUrl}/menu/${firstTable.id}` : "";
 
   return (
     <div className="min-h-screen">
@@ -96,7 +118,13 @@ function Home() {
               )}
             </div>
             <p className="mt-3 text-sm font-semibold">Scan for {firstTable?.label}</p>
-            <p className="text-xs text-muted-foreground">Demo QR — opens the guest menu</p>
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-emerald-600 font-medium">
+              <Wifi className="h-3.5 w-3.5 animate-pulse" />
+              <span>Same Wi-Fi Live Sync</span>
+            </div>
+            <p className="mt-1 text-[11px] font-mono text-muted-foreground break-all max-w-[200px]">
+              {demoUrl}
+            </p>
           </div>
         </div>
       </section>

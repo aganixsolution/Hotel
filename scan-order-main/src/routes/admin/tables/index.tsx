@@ -32,6 +32,16 @@ function TablesManagement() {
 
   // QR Code preview dialog
   const [qrPreviewTable, setQrPreviewTable] = useState<HotelTable | null>(null);
+  const [networkUrl, setNetworkUrl] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/network-info")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.qrBaseUrl) setNetworkUrl(data.qrBaseUrl);
+      })
+      .catch(() => {});
+  }, []);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -53,7 +63,10 @@ function TablesManagement() {
   });
 
   const getQrUrl = (tableId: string) => {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const isLocal =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const baseUrl = isLocal ? networkUrl || window.location.origin : window.location.origin;
     return `${hotel.qrBaseUrl || baseUrl}/menu/${tableId}`;
   };
 

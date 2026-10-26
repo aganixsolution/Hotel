@@ -32,13 +32,19 @@ export function getCartStore(tableId: string) {
   return store;
 }
 
-/** Resets every demo store back to the bundled sample data. */
+/** Resets every demo store back to the bundled sample data and clears orders. */
 export function resetDemoData() {
   [hotelStore, categoriesStore, menuStore, tablesStore, ordersStore].forEach((s) => s.reset());
   cartStores.forEach((s) => s.reset());
   if (typeof window !== "undefined") {
     Object.keys(window.localStorage)
-      .filter((k) => k.startsWith("aganix:cart:"))
+      .filter((k) => k.startsWith("savirasa:") || k.startsWith("aganix:"))
       .forEach((k) => window.localStorage.removeItem(k));
+
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset" }),
+    }).catch(() => {});
   }
 }

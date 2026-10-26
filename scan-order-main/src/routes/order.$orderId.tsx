@@ -15,9 +15,9 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/order/$orderId")({
   head: () => ({
     meta: [
-      { title: "Track your order — Aganix Grand" },
+      { title: "Track your order — SaviRasa" },
       { name: "description", content: "Live status of your table order." },
-      { property: "og:title", content: "Track your order — Aganix Grand" },
+      { property: "og:title", content: "Track your order — SaviRasa" },
       { property: "og:description", content: "Live status of your table order." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

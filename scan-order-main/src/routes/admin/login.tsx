@@ -91,7 +91,7 @@ function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@aganix.in"
+                  placeholder="admin@savirasa.in"
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

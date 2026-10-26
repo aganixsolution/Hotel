@@ -10,7 +10,7 @@ export function LogoMark({ className }: { className?: string }) {
       )}
       aria-hidden
     >
-      A
+      S
     </span>
   );
 }
@@ -20,7 +20,7 @@ export function Logo({ className, to = "/" }: { className?: string; to?: "/" }) 
     <Link to={to} className={cn("flex items-center gap-2.5", className)}>
       <LogoMark />
       <span className="leading-none">
-        <span className="block font-display text-lg font-semibold tracking-tight">Aganix</span>
+        <span className="block font-display text-lg font-semibold tracking-tight">SaviRasa</span>
         <span className="block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
           QR Dining
         </span>

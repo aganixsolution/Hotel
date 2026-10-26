@@ -27,9 +27,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/menu/$tableId")({
   head: () => ({
     meta: [
-      { title: "Menu — Aganix Grand" },
+      { title: "Menu — SaviRasa" },
       { name: "description", content: "Browse the menu and order straight from your table." },
-      { property: "og:title", content: "Menu — Aganix Grand" },
+      { property: "og:title", content: "Menu — SaviRasa" },
       { property: "og:description", content: "Browse the menu and order straight from your table." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

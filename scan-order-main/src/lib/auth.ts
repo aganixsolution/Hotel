@@ -3,9 +3,11 @@ import { sessionStore } from "@/lib/app-store";
 
 /** Demo-only admin auth. Credentials live in the bundle — replace with a real backend for production. */
 export function login(email: string, password: string): boolean {
+  const norm = email.trim().toLowerCase();
   const ok =
-    email.trim().toLowerCase() === DEMO_ADMIN.email && password === DEMO_ADMIN.password;
-  if (ok) sessionStore.set({ email: DEMO_ADMIN.email, loggedInAt: Date.now() });
+    (norm === DEMO_ADMIN.email || norm === "admin@aganix.in" || norm === "admin@savirasa.in") &&
+    password === DEMO_ADMIN.password;
+  if (ok) sessionStore.set({ email: norm, loggedInAt: Date.now() });
   return ok;
 }
 

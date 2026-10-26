@@ -1,13 +1,13 @@
 import type { Category, HotelInfo, HotelTable, MenuItem, Order } from "@/types";
 
 export const DEMO_ADMIN = {
-  email: "admin@aganix.in",
+  email: "admin@savirasa.in",
   password: "admin123",
 };
 
 export const seedHotel: HotelInfo = {
-  name: "Aganix Grand",
-  tagline: "Royal Indian Kitchen & Bar",
+  name: "SaviRasa",
+  tagline: "Authentic Flavours & Modern Hospitality",
   address: "12 MG Road, Bengaluru, Karnataka 560001",
   phone: "+91 80 4567 8900",
   gstin: "29ABCDE1234F1Z5",
@@ -203,45 +203,4 @@ export const seedTables: HotelTable[] = [
 const now = Date.now();
 const min = 60 * 1000;
 
-export const seedOrders: Order[] = [
-  {
-    id: "AGX-1042",
-    tableId: "t3",
-    tableLabel: "Table 3",
-    customerName: "Priya Sharma",
-    phone: "98450 12345",
-    instructions: "Less spicy please",
-    lines: [
-      { itemId: "butter-chicken", name: "Butter Chicken", price: 399, quantity: 1, isVeg: false },
-      { itemId: "garlic-naan", name: "Garlic Naan", price: 89, quantity: 3, isVeg: true },
-      { itemId: "mango-lassi", name: "Mango Lassi", price: 119, quantity: 2, isVeg: true },
-    ],
-    subtotal: 904,
-    tax: 45.2,
-    total: 949.2,
-    paymentMethod: "upi",
-    paymentStatus: "paid",
-    paymentRef: "UPI-DEMO-88213",
-    status: "preparing",
-    createdAt: now - 18 * min,
-    updatedAt: now - 9 * min,
-  },
-  {
-    id: "AGX-1043",
-    tableId: "t5",
-    tableLabel: "Table 5",
-    customerName: "Rahul Iyer",
-    lines: [
-      { itemId: "masala-dosa", name: "Masala Dosa", price: 179, quantity: 2, isVeg: true },
-      { itemId: "masala-chai", name: "Masala Chai", price: 59, quantity: 2, isVeg: true },
-    ],
-    subtotal: 476,
-    tax: 23.8,
-    total: 499.8,
-    paymentMethod: "counter",
-    paymentStatus: "unpaid",
-    status: "pending",
-    createdAt: now - 4 * min,
-    updatedAt: now - 4 * min,
-  },
-];
+export const seedOrders: Order[] = [];

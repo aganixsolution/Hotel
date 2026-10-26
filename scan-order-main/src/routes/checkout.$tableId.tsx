@@ -22,9 +22,9 @@ import type { PaymentMethod } from "@/types";
 export const Route = createFileRoute("/checkout/$tableId")({
   head: () => ({
     meta: [
-      { title: "Checkout — Aganix Grand" },
+      { title: "Checkout — SaviRasa" },
       { name: "description", content: "Review your order and choose how to pay." },
-      { property: "og:title", content: "Checkout — Aganix Grand" },
+      { property: "og:title", content: "Checkout — SaviRasa" },
       { property: "og:description", content: "Review your order and choose how to pay." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
