@@ -60,6 +60,9 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   paymentRef?: string | undefined;
+  razorpayOrderId?: string | undefined;
+  razorpayPaymentId?: string | undefined;
+  razorpaySignature?: string | undefined;
   status: OrderStatus;
   createdAt: number;
   updatedAt: number;

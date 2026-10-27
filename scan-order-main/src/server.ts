@@ -52,7 +52,8 @@ export default {
       if (url.pathname.startsWith("/api/")) {
         const bodyText = request.method === "POST" ? await request.text() : "";
         const port = Number(url.port) || 3000;
-        const apiRes = handleSyncApi(url.pathname, request.method, bodyText, port);
+        const hostHeader = request.headers.get("host") || url.host || "";
+        const apiRes = await handleSyncApi(url.pathname, request.method, bodyText, port, hostHeader);
         if (apiRes) {
           return new Response(apiRes.body, {
             status: apiRes.status,

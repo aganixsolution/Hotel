@@ -18,7 +18,8 @@ function syncDevPlugin() {
             bodyText = Buffer.concat(chunks).toString("utf-8");
           }
           const port = Number(url.port) || 3000;
-          const apiRes = handleSyncApi(url.pathname, req.method, bodyText, port);
+          const hostHeader = req.headers.host || "";
+          const apiRes = await handleSyncApi(url.pathname, req.method, bodyText, port, hostHeader);
           if (apiRes) {
             res.statusCode = apiRes.status;
             for (const [k, v] of Object.entries(apiRes.headers)) {

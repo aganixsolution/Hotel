@@ -2,6 +2,12 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { seedCategories, seedHotel, seedMenu, seedTables } from "../data/seed";
+import {
+  isMongoConfigured,
+  getMongoState,
+  saveMongoState,
+  resetMongoState,
+} from "./mongodb";
 
 export interface SyncState {
   orders: any[];
@@ -12,9 +18,16 @@ export interface SyncState {
   timestamp: number;
 }
 
-const STORE_PATH = path.resolve(process.cwd(), "src/data/live-store.json");
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-function getDefaultState(): SyncState {
+// On Vercel serverless, root fs is read-only, use os.tmpdir()
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const STORE_PATH = isServerless
+  ? path.resolve(os.tmpdir(), "savirasa-live-store.json")
+  : path.resolve(process.cwd(), "src/data/live-store.json");
+
+export function getDefaultState(): SyncState {
   return {
     orders: [],
     hotel: { ...seedHotel, name: "SaviRasa" },
@@ -42,7 +55,7 @@ function loadInitialState(): SyncState {
       };
     }
   } catch (err) {
-    console.warn("Could not load live-store.json, using defaults", err);
+    console.warn("Could not load store file, using defaults", err);
   }
   const def = getDefaultState();
   saveState(def);
@@ -55,7 +68,35 @@ function saveState(state: SyncState) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(STORE_PATH, JSON.stringify(state, null, 2), "utf-8");
   } catch (err) {
-    console.warn("Could not save live-store.json", err);
+    console.warn("Could not save store file", err);
+  }
+}
+
+async function getKvState(): Promise<SyncState | null> {
+  if (!KV_URL || !KV_TOKEN) return null;
+  try {
+    const res = await fetch(`${KV_URL}/get/savirasa:state`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.result ? (typeof json.result === "string" ? JSON.parse(json.result) : json.result) : null;
+  } catch (err) {
+    console.warn("Failed to fetch from Upstash/KV:", err);
+    return null;
+  }
+}
+
+async function setKvState(state: SyncState) {
+  if (!KV_URL || !KV_TOKEN) return;
+  try {
+    await fetch(`${KV_URL}/set/savirasa:state`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      body: JSON.stringify(state),
+    });
+  } catch (err) {
+    console.warn("Failed to save to Upstash/KV:", err);
   }
 }
 
@@ -81,23 +122,62 @@ export function getNetworkIp(): string {
   return "localhost";
 }
 
-export function handleSyncApi(pathname: string, method: string, bodyText: string, port = 3000) {
+export async function handleSyncApi(
+  pathname: string,
+  method: string,
+  bodyText: string,
+  port = 3000,
+  hostHeader = ""
+) {
   const ip = getNetworkIp();
+  const isVercel = Boolean(process.env.VERCEL);
 
   if (pathname === "/api/network-info") {
+    const qrBaseUrl = isVercel && hostHeader
+      ? `https://${hostHeader}`
+      : `http://${ip}:${port}`;
+
     return {
       status: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         ip,
         port,
-        qrBaseUrl: `http://${ip}:${port}`,
+        qrBaseUrl,
+        isVercel,
+        hasCloudKv: Boolean(KV_URL && KV_TOKEN),
+        hasMongo: isMongoConfigured(),
       }),
     };
   }
 
   if (pathname === "/api/sync") {
     if (method === "GET") {
+      // 1. Check MongoDB first if configured
+      if (isMongoConfigured()) {
+        try {
+          const mongoState = await getMongoState();
+          if (mongoState) {
+            currentState = {
+              orders: mongoState.orders || [],
+              menu: mongoState.menu || currentState.menu,
+              tables: mongoState.tables || currentState.tables,
+              hotel: mongoState.hotel || currentState.hotel,
+              categories: currentState.categories,
+              timestamp: mongoState.timestamp || Date.now(),
+            };
+          }
+        } catch (err) {
+          console.warn("Mongo fetch failed, falling back:", err);
+        }
+      } else {
+        // 2. Check KV / Upstash
+        const cloudState = await getKvState();
+        if (cloudState) {
+          currentState = cloudState;
+        }
+      }
+
       return {
         status: 200,
         headers: {
@@ -112,9 +192,16 @@ export function handleSyncApi(pathname: string, method: string, bodyText: string
     if (method === "POST") {
       try {
         const payload = JSON.parse(bodyText || "{}");
+
         if (payload.action === "reset") {
           currentState = getDefaultState();
           saveState(currentState);
+
+          if (isMongoConfigured()) {
+            await resetMongoState(currentState);
+          }
+          await setKvState(currentState);
+
           return {
             status: 200,
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -126,6 +213,12 @@ export function handleSyncApi(pathname: string, method: string, bodyText: string
           (currentState as any)[payload.key] = payload.value;
           currentState.timestamp = Date.now();
           saveState(currentState);
+
+          // Save to MongoDB asynchronously
+          if (isMongoConfigured()) {
+            await saveMongoState(payload.key, payload.value);
+          }
+          await setKvState(currentState);
         }
 
         return {
