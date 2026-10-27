@@ -1,3 +1,6 @@
+import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
 import { MongoClient, Db } from "mongodb";
 import type { SyncState } from "./sync-server";
 
@@ -10,12 +13,96 @@ declare global {
 const DEFAULT_DB_NAME = "savirasa_db";
 
 export function getMongoUri(): string | undefined {
+  if (process.env.MONGODB_URI) {
+    return process.env.MONGODB_URI;
+  }
+
+  // Fallback: manually parse .env if process.env.MONGODB_URI is not set
+  try {
+    const candidates = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "scan-order-main", ".env"),
+      "D:\\Aganix tech solutions\\scan-order-main\\scan-order-main\\.env",
+      "D:\\Aganix tech solutions\\scan-order-main\\.env",
+    ];
+    for (const file of candidates) {
+      if (fs.existsSync(file)) {
+        const text = fs.readFileSync(file, "utf-8");
+        const match = text.match(/^\s*MONGODB_URI\s*=\s*(.+)$/m);
+        if (match && match[1]) {
+          const val = match[1].trim().replace(/^["']|["']$/g, "");
+          process.env.MONGODB_URI = val;
+          return val;
+        }
+      }
+    }
+  } catch {
+    // Ignore error
+  }
+
   return process.env.MONGODB_URI;
 }
 
 export function isMongoConfigured(): boolean {
   const uri = getMongoUri();
   return Boolean(uri && !uri.includes("<db_password>") && uri.startsWith("mongodb"));
+}
+
+export async function checkMongoHealth() {
+  const configured = isMongoConfigured();
+  if (!configured) {
+    return {
+      connected: false,
+      configured: false,
+      database: DEFAULT_DB_NAME,
+      message: "MONGODB_URI is not configured in .env",
+    };
+  }
+
+  try {
+    const client = await getMongoClient();
+    if (!client) {
+      return {
+        connected: false,
+        configured: true,
+        database: DEFAULT_DB_NAME,
+        message: "Failed to establish connection to MongoDB Atlas",
+      };
+    }
+    const db = client.db(DEFAULT_DB_NAME);
+    await db.command({ ping: 1 });
+    const cols = await db.listCollections().toArray();
+    const colNames = cols.map((c) => c.name);
+
+    const [ordersCount, menuCount, tablesCount, paymentsCount] = await Promise.all([
+      colNames.includes("orders") ? db.collection("orders").countDocuments() : 0,
+      colNames.includes("menu") ? db.collection("menu").countDocuments() : 0,
+      colNames.includes("tables") ? db.collection("tables").countDocuments() : 0,
+      colNames.includes("payments") ? db.collection("payments").countDocuments() : 0,
+    ]);
+
+    return {
+      connected: true,
+      configured: true,
+      database: DEFAULT_DB_NAME,
+      collections: colNames,
+      counts: {
+        orders: ordersCount,
+        menu: menuCount,
+        tables: tablesCount,
+        payments: paymentsCount,
+      },
+      message: "Connected to MongoDB Atlas",
+    };
+  } catch (err: any) {
+    return {
+      connected: false,
+      configured: true,
+      database: DEFAULT_DB_NAME,
+      error: err.message,
+      message: `MongoDB connection error: ${err.message}`,
+    };
+  }
 }
 
 export async function getMongoClient(): Promise<MongoClient | null> {

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { ordersStore, menuStore, tablesStore, resetDemoData } from "@/lib/app-store";
@@ -16,6 +17,8 @@ import {
   CheckCircle2,
   AlertCircle,
   TrendingUp,
+  Database,
+  RefreshCw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
@@ -39,6 +42,34 @@ function AdminDashboard() {
   const unpaidCounterOrders = orders.filter(
     (o) => o.paymentMethod === "counter" && o.paymentStatus === "unpaid"
   );
+
+  const [dbStatus, setDbStatus] = useState<{
+    loading: boolean;
+    connected: boolean;
+    configured: boolean;
+    database?: string;
+    counts?: { orders: number; menu: number; tables: number; payments: number };
+    message?: string;
+  }>({ loading: true, connected: false, configured: false });
+
+  const checkDb = () => {
+    setDbStatus((s) => ({ ...s, loading: true }));
+    fetch("/api/db-status")
+      .then((r) => r.json())
+      .then((data) => setDbStatus({ loading: false, ...data }))
+      .catch(() =>
+        setDbStatus({
+          loading: false,
+          connected: false,
+          configured: false,
+          message: "Server API unreachable",
+        })
+      );
+  };
+
+  useEffect(() => {
+    checkDb();
+  }, []);
 
   const handleUpdateStatus = (orderId: string, nextStatus: any) => {
     ordersStore.update((prev) =>
@@ -69,6 +100,55 @@ function AdminDashboard() {
       }
     >
       <div className="space-y-8">
+        {/* Database & Cloud Sync Status Banner */}
+        <div className="p-4 rounded-2xl border bg-card/60 backdrop-blur-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${dbStatus.connected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+              <Database className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-foreground">
+                  Database: MongoDB Atlas
+                </span>
+                {dbStatus.loading ? (
+                  <Badge variant="outline" className="text-xs">
+                    Checking...
+                  </Badge>
+                ) : dbStatus.connected ? (
+                  <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Connected ({dbStatus.database || "savirasa_db"})
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-xs gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Offline / Local fallback
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {dbStatus.connected
+                  ? `Live collections: ${dbStatus.counts?.orders ?? 0} orders · ${dbStatus.counts?.menu ?? 0} menu items · ${dbStatus.counts?.tables ?? 0} tables · ${dbStatus.counts?.payments ?? 0} payments recorded`
+                  : dbStatus.message || "Using local browser storage until MongoDB connects"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={checkDb}
+              disabled={dbStatus.loading}
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${dbStatus.loading ? "animate-spin" : ""}`} />
+              <span>Refresh Status</span>
+            </Button>
+          </div>
+        </div>
+
         {/* Top Metric Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border shadow-card bg-card">

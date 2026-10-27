@@ -7,6 +7,7 @@ import {
   getMongoState,
   saveMongoState,
   resetMongoState,
+  checkMongoHealth,
 } from "./mongodb";
 
 export interface SyncState {
@@ -132,10 +133,21 @@ export async function handleSyncApi(
   const ip = getNetworkIp();
   const isVercel = Boolean(process.env.VERCEL);
 
+  if (pathname === "/api/db-status" || pathname === "/api/mongodb-status") {
+    const health = await checkMongoHealth();
+    return {
+      status: health.connected ? 200 : 503,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify(health),
+    };
+  }
+
   if (pathname === "/api/network-info") {
     const qrBaseUrl = isVercel && hostHeader
       ? `https://${hostHeader}`
       : `http://${ip}:${port}`;
+
+    const mongoConfigured = isMongoConfigured();
 
     return {
       status: 200,
@@ -146,7 +158,7 @@ export async function handleSyncApi(
         qrBaseUrl,
         isVercel,
         hasCloudKv: Boolean(KV_URL && KV_TOKEN),
-        hasMongo: isMongoConfigured(),
+        hasMongo: mongoConfigured,
       }),
     };
   }

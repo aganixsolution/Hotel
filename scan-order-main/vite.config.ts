@@ -1,4 +1,6 @@
-// @lovable.dev/vite-tanstack-config already includes standard plugins
+// Load environment variables before anything else
+import "dotenv/config";
+process.env.NITRO_PRESET = process.env.NITRO_PRESET || "vercel";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { handleSyncApi } from "./src/server/sync-server";
 
