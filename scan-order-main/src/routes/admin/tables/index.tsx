@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { tablesStore, hotelStore } from "@/lib/app-store";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";

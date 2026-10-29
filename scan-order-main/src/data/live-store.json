@@ -1,19 +1,34 @@
 {
-  "orders": [],
-  "hotel": {
-    "name": "SaviRasa",
-    "tagline": "Authentic Flavours & Modern Hospitality",
-    "address": "12 MG Road, Bengaluru, Karnataka 560001",
-    "phone": "+91 80 4567 8900",
-    "gstin": "29ABCDE1234F1Z5",
-    "taxPercent": 5,
-    "qrBaseUrl": ""
-  },
+  "orders": [
+    {
+      "id": "E2E-1793281686199",
+      "tableId": "t1",
+      "tableLabel": "Table 1",
+      "customerName": "E2E Test",
+      "phone": "9999999999",
+      "items": [
+        {
+          "menuItemId": "paneer-tikka",
+          "name": "Paneer Tikka",
+          "price": 289,
+          "quantity": 1
+        }
+      ],
+      "subtotal": 289,
+      "tax": 14.45,
+      "total": 303.45,
+      "status": "pending",
+      "paymentMethod": "counter",
+      "paymentStatus": "unpaid",
+      "createdAt": 1793281686199,
+      "updatedAt": 1793281686199
+    }
+  ],
   "menu": [
     {
       "id": "paneer-tikka",
       "name": "Paneer Tikka",
-      "description": "Cottage cheese cubes marinated in hung curd and spices, char-grilled in the tandoor.",
+      "description": "Cottage cheese cubes marinated in hung curd and spices, char-grilled in tandoor.",
       "price": 289,
       "categoryId": "starters",
       "image": "/images/paneer-tikka.jpg",
@@ -82,7 +97,7 @@
     {
       "id": "veg-biryani",
       "name": "Veg Dum Biryani",
-      "description": "Seasonal vegetables and basmati layered with whole spices and sealed in a handi.",
+      "description": "Seasonal vegetables and basmati layered with whole spices and sealed in handi.",
       "price": 299,
       "categoryId": "biryani",
       "image": "/images/veg-biryani.jpg",
@@ -113,7 +128,7 @@
     {
       "id": "masala-dosa",
       "name": "Masala Dosa",
-      "description": "Crisp rice and lentil crêpe with spiced potato, served with sambar and chutney.",
+      "description": "Crisp rice and lentil crepe with spiced potato, served with sambar and chutney.",
       "price": 179,
       "categoryId": "south",
       "image": "/images/masala-dosa.jpg",
@@ -125,7 +140,7 @@
     {
       "id": "gulab-jamun",
       "name": "Gulab Jamun",
-      "description": "Warm milk-solid dumplings soaked in rose and cardamom syrup. Two pieces.",
+      "description": "Warm milk dumplings soaked in rose and cardamom syrup.",
       "price": 129,
       "categoryId": "desserts",
       "image": "/images/gulab-jamun.jpg",
@@ -145,7 +160,7 @@
     {
       "id": "masala-chai",
       "name": "Masala Chai",
-      "description": "Assam tea brewed with milk, ginger, cardamom and cinnamon. Served in a kulhad.",
+      "description": "Assam tea brewed with milk, ginger, cardamom and cinnamon.",
       "price": 59,
       "categoryId": "beverages",
       "image": "/images/masala-chai.jpg",
@@ -162,16 +177,6 @@
       "isVeg": true,
       "isAvailable": true,
       "isBestseller": true
-    },
-    {
-      "id": "lime-soda",
-      "name": "Fresh Lime Soda",
-      "description": "Sparkling soda with fresh lime — sweet, salted or mixed.",
-      "price": 89,
-      "categoryId": "beverages",
-      "image": "/images/lime-soda.jpg",
-      "isVeg": true,
-      "isAvailable": true
     }
   ],
   "tables": [
@@ -180,44 +185,60 @@
       "number": 1,
       "label": "Table 1",
       "seats": 2,
-      "area": "Window"
+      "area": "Window",
+      "isActive": true
     },
     {
       "id": "t2",
       "number": 2,
       "label": "Table 2",
       "seats": 4,
-      "area": "Window"
+      "area": "Window",
+      "isActive": true
     },
     {
       "id": "t3",
       "number": 3,
       "label": "Table 3",
       "seats": 4,
-      "area": "Main Hall"
+      "area": "Main Hall",
+      "isActive": true
     },
     {
       "id": "t4",
       "number": 4,
       "label": "Table 4",
       "seats": 6,
-      "area": "Main Hall"
+      "area": "Main Hall",
+      "isActive": true
     },
     {
       "id": "t5",
       "number": 5,
       "label": "Table 5",
       "seats": 4,
-      "area": "Courtyard"
+      "area": "Courtyard",
+      "isActive": true
     },
     {
       "id": "t6",
       "number": 6,
       "label": "Table 6",
       "seats": 8,
-      "area": "Private Dining"
+      "area": "Private Dining",
+      "isActive": true
     }
   ],
+  "hotel": {
+    "id": "current",
+    "address": "12 MG Road, Bengaluru, Karnataka 560001",
+    "gstin": "29ABCDE1234F1Z5",
+    "name": "SaviRasa",
+    "phone": "+91 80 4567 8900",
+    "qrBaseUrl": "",
+    "tagline": "Authentic Flavours & Modern Hospitality",
+    "taxPercent": 5
+  },
   "categories": [
     {
       "id": "starters",
@@ -255,5 +276,5 @@
       "icon": "🥤"
     }
   ],
-  "timestamp": 1792986087454
+  "timestamp": 1793281686577
 }

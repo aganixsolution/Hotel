@@ -1,7 +1,33 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import dns from "node:dns";
 import { MongoClient, Db } from "mongodb";
+
+const PUBLIC_DNS = ["8.8.8.8", "1.1.1.1", "8.8.4.4"];
+
+/**
+ * mongodb+srv:// needs a DNS SRV lookup. Some Windows setups (VPNs, local DNS
+ * proxies) expose only 127.0.0.1 to Node, which refuses SRV queries
+ * ("querySrv ECONNREFUSED"). Fall back to public resolvers in that case.
+ */
+function usePublicDns() {
+  try {
+    const current = dns.getServers();
+    dns.setServers([...PUBLIC_DNS, ...current.filter((s) => !PUBLIC_DNS.includes(s))]);
+  } catch {
+    // ignore
+  }
+}
+
+try {
+  const servers = dns.getServers();
+  if (servers.length === 0 || servers.every((s) => s.startsWith("127.") || s === "::1")) {
+    usePublicDns();
+  }
+} catch {
+  // ignore
+}
 import type { SyncState } from "./sync-server";
 
 // Cache client globally across serverless invocations (Vercel best practice)
@@ -11,6 +37,7 @@ declare global {
 }
 
 const DEFAULT_DB_NAME = "savirasa_db";
+let lastMongoError: string | null = null;
 
 export function getMongoUri(): string | undefined {
   if (process.env.MONGODB_URI) {
@@ -66,7 +93,8 @@ export async function checkMongoHealth() {
         connected: false,
         configured: true,
         database: DEFAULT_DB_NAME,
-        message: "Failed to establish connection to MongoDB Atlas",
+        error: lastMongoError,
+        message: `Failed to connect to MongoDB Atlas: ${lastMongoError ?? "unknown error"}`,
       };
     }
     const db = client.db(DEFAULT_DB_NAME);
@@ -111,18 +139,41 @@ export async function getMongoClient(): Promise<MongoClient | null> {
     return null;
   }
 
+  const connect = () => {
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 15000,
+    });
+    return client.connect();
+  };
+
   try {
     if (!globalThis._mongoClientPromise) {
-      const client = new MongoClient(uri, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 10000,
-      });
-      globalThis._mongoClientPromise = client.connect();
+      globalThis._mongoClientPromise = connect();
     }
-    return await globalThis._mongoClientPromise;
-  } catch (err) {
-    console.error("MongoDB connection error:", err);
+    const client = await globalThis._mongoClientPromise;
+    lastMongoError = null;
+    return client;
+  } catch (err: any) {
     globalThis._mongoClientPromise = undefined;
+    const msg = err?.message || String(err);
+    // Retry once with public DNS if the SRV/DNS lookup failed
+    if (/querySrv|ENOTFOUND|ECONNREFUSED|ETIMEOUT/i.test(msg)) {
+      try {
+        usePublicDns();
+        globalThis._mongoClientPromise = connect();
+        const client = await globalThis._mongoClientPromise;
+        lastMongoError = null;
+        return client;
+      } catch (err2: any) {
+        globalThis._mongoClientPromise = undefined;
+        lastMongoError = err2?.message || String(err2);
+        console.error("MongoDB connection error:", lastMongoError);
+        return null;
+      }
+    }
+    lastMongoError = msg;
+    console.error("MongoDB connection error:", lastMongoError);
     return null;
   }
 }
@@ -230,6 +281,7 @@ export async function saveMongoState(key: string, value: any): Promise<boolean> 
         const { _id, ...itemData } = item;
         await menuCol.updateOne({ id: item.id }, { $set: itemData }, { upsert: true });
       }
+      await menuCol.deleteMany({ id: { $nin: value.map((m: any) => m.id).filter(Boolean) } });
     } else if (key === "tables" && Array.isArray(value)) {
       const tablesCol = db.collection("tables");
       for (const tbl of value) {
@@ -237,6 +289,7 @@ export async function saveMongoState(key: string, value: any): Promise<boolean> 
         const { _id, ...tblData } = tbl;
         await tablesCol.updateOne({ id: tbl.id }, { $set: tblData }, { upsert: true });
       }
+      await tablesCol.deleteMany({ id: { $nin: value.map((t: any) => t.id).filter(Boolean) } });
     } else if (key === "hotel" && value) {
       const hotelCol = db.collection("hotel");
       const { _id, ...hotelData } = value;

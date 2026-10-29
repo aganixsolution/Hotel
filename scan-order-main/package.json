@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:mongo": "node scripts/test-mongo.js",
-    "seed:mongo": "node scripts/init-mongo.js"
+    "seed:mongo": "node scripts/init-mongo.js",
+    "test:e2e-order": "node scripts/e2e-order-mongo.js"
   },
   "overrides": {
     "rolldown": "1.2.1"
