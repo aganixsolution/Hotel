@@ -21,9 +21,9 @@ export const NEXT_ACTION: Partial<Record<OrderStatus, string>> = {
 };
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  upi: "UPI (online)",
+  upi: "UPI (Razorpay)",
   card: "Card (online)",
-  counter: "Pay at counter",
+  counter: "Cash at counter",
 };
 
 export function nextStatus(status: OrderStatus): OrderStatus | null {
@@ -47,6 +47,9 @@ export interface PlaceOrderInput {
   instructions?: string | undefined;
   paymentMethod: PaymentMethod;
   paymentRef?: string | undefined;
+  razorpayOrderId?: string | undefined;
+  razorpayPaymentId?: string | undefined;
+  razorpaySignature?: string | undefined;
 }
 
 export function placeOrder(input: PlaceOrderInput): Order {
@@ -80,6 +83,9 @@ export function placeOrder(input: PlaceOrderInput): Order {
     paymentMethod: input.paymentMethod,
     paymentStatus: isOnline ? "paid" : "unpaid",
     paymentRef: input.paymentRef,
+    razorpayOrderId: input.razorpayOrderId,
+    razorpayPaymentId: input.razorpayPaymentId,
+    razorpaySignature: input.razorpaySignature,
     status: "pending",
     createdAt: now,
     updatedAt: now,

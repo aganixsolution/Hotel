@@ -9,6 +9,7 @@ import {
   resetMongoState,
   checkMongoHealth,
 } from "./mongodb";
+import { createRazorpayOrder, verifyRazorpaySignature } from "./razorpay";
 
 export interface SyncState {
   orders: any[];
@@ -132,6 +133,35 @@ export async function handleSyncApi(
 ) {
   const ip = getNetworkIp();
   const isVercel = Boolean(process.env.VERCEL);
+
+  const json = (status: number, data: unknown) => ({
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    body: JSON.stringify(data),
+  });
+
+  if (pathname === "/api/razorpay/order" && method === "POST") {
+    try {
+      const { amount, tableId, customerName } = JSON.parse(bodyText || "{}");
+      const order = await createRazorpayOrder(Number(amount), `tbl_${tableId}_${Date.now()}`, {
+        tableId: String(tableId ?? ""),
+        customerName: String(customerName ?? ""),
+      });
+      return json(200, order);
+    } catch (err: any) {
+      return json(400, { error: err.message });
+    }
+  }
+
+  if (pathname === "/api/razorpay/verify" && method === "POST") {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = JSON.parse(bodyText || "{}");
+      const ok = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+      return json(ok ? 200 : 400, ok ? { verified: true } : { verified: false, error: "Invalid payment signature" });
+    } catch (err: any) {
+      return json(400, { verified: false, error: err.message });
+    }
+  }
 
   if (pathname === "/api/db-status" || pathname === "/api/mongodb-status") {
     const health = await checkMongoHealth();

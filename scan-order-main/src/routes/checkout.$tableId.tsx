@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CreditCard, Loader2, ShoppingBag, Smartphone, Store } from "lucide-react";
+import { ArrowLeft, Loader2, ShoppingBag, Smartphone, Store } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { PaymentDialog } from "@/components/checkout/PaymentDialog";
+import { payWithRazorpayUpi, type RazorpaySuccess } from "@/lib/razorpay";
 import { BillSummary } from "@/components/shared/BillSummary";
 import { FullPageMessage, LoadingScreen } from "@/components/shared/FullPageMessage";
 import { VegMark } from "@/components/shared/VegMark";
@@ -35,9 +35,8 @@ export const Route = createFileRoute("/checkout/$tableId")({
 });
 
 const METHODS: { id: PaymentMethod; title: string; text: string; icon: typeof Smartphone }[] = [
-  { id: "upi", title: "UPI", text: "GPay, PhonePe, Paytm — demo", icon: Smartphone },
-  { id: "card", title: "Credit / Debit card", text: "Visa, Mastercard, RuPay — demo", icon: CreditCard },
-  { id: "counter", title: "Pay at counter", text: "Cash or card when you leave", icon: Store },
+  { id: "upi", title: "UPI", text: "GPay, PhonePe, Paytm, BHIM — secured by Razorpay", icon: Smartphone },
+  { id: "counter", title: "Cash at counter", text: "Pay cash when you leave", icon: Store },
 ];
 
 function CheckoutPage() {
@@ -53,7 +52,6 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [instructions, setInstructions] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("upi");
-  const [payOpen, setPayOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const table = tables.find((t) => t.id === tableId);
@@ -83,9 +81,19 @@ function CheckoutPage() {
     );
   }
 
-  const finish = (paymentRef?: string) => {
+  const finish = (rzp?: RazorpaySuccess) => {
     try {
-      const order = placeOrder({ tableId, customerName: name, phone, instructions, paymentMethod: method, paymentRef });
+      const order = placeOrder({
+        tableId,
+        customerName: name,
+        phone,
+        instructions,
+        paymentMethod: method,
+        paymentRef: rzp?.razorpay_payment_id,
+        razorpayOrderId: rzp?.razorpay_order_id,
+        razorpayPaymentId: rzp?.razorpay_payment_id,
+        razorpaySignature: rzp?.razorpay_signature,
+      });
       toast.success(`Order ${order.id} sent to the kitchen`);
       navigate({ to: "/order/$orderId", params: { orderId: order.id } });
     } catch (err) {
@@ -94,17 +102,30 @@ function CheckoutPage() {
     }
   };
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("Please enter your name");
       return;
     }
+    setSubmitting(true);
     if (method === "counter") {
-      setSubmitting(true);
       window.setTimeout(() => finish(), 500);
-    } else {
-      setPayOpen(true);
+      return;
+    }
+    try {
+      const rzp = await payWithRazorpayUpi({
+        amount: totals.total,
+        tableId,
+        merchantName: hotel.name,
+        customerName: name.trim(),
+        phone: phone.trim(),
+      });
+      toast.success("Payment successful");
+      finish(rzp);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed");
+      setSubmitting(false);
     }
   };
 
@@ -198,20 +219,6 @@ function CheckoutPage() {
           </aside>
         </form>
       </div>
-
-      {method !== "counter" && (
-        <PaymentDialog
-          open={payOpen}
-          onOpenChange={setPayOpen}
-          method={method}
-          amount={totals.total}
-          merchantName={hotel.name}
-          onSuccess={(ref) => {
-            setPayOpen(false);
-            finish(ref);
-          }}
-        />
-      )}
     </div>
   );
 }
