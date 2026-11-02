@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  ArrowRight,
   Loader2,
   ShoppingBag,
   Smartphone,
@@ -9,7 +10,6 @@ import {
   Check,
   ExternalLink,
   AlertTriangle,
-  Info,
 } from "lucide-react";
 import { useState, useEffect, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/checkout/$tableId")({
 });
 
 const METHODS: { id: PaymentMethod; title: string; text: string; icon: typeof Smartphone }[] = [
-  { id: "upi", title: "Google Pay / Direct UPI", text: "Pay on Google Pay or scan table standee QR", icon: Smartphone },
+  { id: "upi", title: "Google Pay / Direct UPI", text: "Pay on Google Pay or scan table standee", icon: Smartphone },
   { id: "counter", title: "Cash at counter", text: "Pay cash at the counter when you leave", icon: Store },
 ];
 
@@ -62,6 +62,7 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [instructions, setInstructions] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("upi");
+  const [upiStep, setUpiStep] = useState<1 | 2>(1);
   const [utr, setUtr] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -109,10 +110,15 @@ function CheckoutPage() {
     );
   }
 
-  const cleanNote = `SaviRasa ${table.label}`.slice(0, 30);
-  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(upiConfig.upiId)}&pn=${encodeURIComponent(
+  // Direct Google Pay deep link (tez://) opens Google Pay directly without cross-app Paytm risk warnings
+  const gpayIntentUrl = `tez://upi/pay?pa=${encodeURIComponent(upiConfig.upiId)}&pn=${encodeURIComponent(
     upiConfig.upiName
-  )}&am=${totals.total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
+  )}&am=${totals.total.toFixed(2)}&cu=INR`;
+
+  // Standard universal UPI link
+  const genericUpiUrl = `upi://pay?pa=${encodeURIComponent(upiConfig.upiId)}&pn=${encodeURIComponent(
+    upiConfig.upiName
+  )}&am=${totals.total.toFixed(2)}&cu=INR`;
 
   const copyToClipboard = (text: string, type: "upi" | "amount") => {
     navigator.clipboard?.writeText(text);
@@ -135,6 +141,12 @@ function CheckoutPage() {
     }
 
     if (method === "upi") {
+      // If still on Step 1, advance to Step 2 to enter UTR
+      if (upiStep === 1) {
+        setUpiStep(2);
+        return;
+      }
+
       const cleanUtr = utr.trim().replace(/\D/g, "");
       if (cleanUtr.length < 12) {
         toast.error("Please enter the complete 12-digit Transaction ID / UTR from your payment app");
@@ -252,7 +264,10 @@ function CheckoutPage() {
                       role="radio"
                       aria-checked={selected}
                       key={m.id}
-                      onClick={() => setMethod(m.id)}
+                      onClick={() => {
+                        setMethod(m.id);
+                        setUpiStep(1);
+                      }}
                       className={cn(
                         "flex items-center gap-4 rounded-xl border p-4 text-left transition",
                         selected ? "border-primary bg-primary/10" : "hover:border-primary/40"
@@ -283,105 +298,156 @@ function CheckoutPage() {
                 })}
               </div>
 
-              {/* Direct UPI Payment Box */}
+              {/* Direct UPI Payment Flow */}
               {method === "upi" && (
                 <div className="mt-4 rounded-2xl border bg-muted/20 p-5 space-y-5 animate-in fade-in-50 duration-200">
-                  {/* Step 1: Pay Amount */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b">
-                      <div>
-                        <h3 className="font-semibold text-base text-foreground">Step 1: Pay Food Amount</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Tap to open Google Pay, or scan the Google Pay standee on your dining table
-                        </p>
+                  {/* STEP 1: PAYMENT */}
+                  {upiStep === 1 ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b">
+                        <div>
+                          <h3 className="font-semibold text-base text-foreground">Step 1: Pay Food Bill</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Pay via Google Pay or scan the QR code standee on your table
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Food Amount Display */}
-                    <div className="flex items-center justify-between rounded-xl bg-card border p-3.5 shadow-sm">
-                      <div>
-                        <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold block">
-                          Food Bill Amount
-                        </span>
-                        <span className="text-2xl font-bold font-display text-primary">{formatINR(totals.total)}</span>
+                      {/* Food Amount Display */}
+                      <div className="flex items-center justify-between rounded-xl bg-card border p-4 shadow-sm">
+                        <div>
+                          <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold block">
+                            Food Bill Amount
+                          </span>
+                          <span className="text-2xl font-bold font-display text-primary">{formatINR(totals.total)}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(totals.total.toFixed(2), "amount")}
+                          className="text-xs gap-1.5"
+                        >
+                          {copiedAmount ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span>Copy Amount</span>
+                        </Button>
                       </div>
+
+                      {/* Payment App Launch Buttons */}
+                      <div className="grid gap-2.5">
+                        <a
+                          href={gpayIntentUrl}
+                          onClick={() => setUpiStep(2)}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold py-3 px-4 shadow-sm hover:bg-primary/90 transition text-sm text-center"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          <span>Pay with Google Pay</span>
+                        </a>
+
+                        <a
+                          href={genericUpiUrl}
+                          onClick={() => setUpiStep(2)}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border bg-card text-foreground font-semibold py-2.5 px-4 shadow-sm hover:bg-muted transition text-xs text-center"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Pay with Other App (PhonePe / Paytm)</span>
+                        </a>
+                      </div>
+
+                      {/* Table Standee / UPI ID Pill */}
+                      <div className="rounded-xl border bg-card p-3.5 text-xs space-y-2">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Dining Table:</span>
+                          <span className="font-semibold text-foreground">Scan Google Pay QR on your table</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5 border-t">
+                          <span className="text-muted-foreground">UPI ID:</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(upiConfig.upiId, "upi")}
+                            className="font-mono font-medium text-foreground hover:text-primary inline-flex items-center gap-1.5 transition"
+                          >
+                            <span>{upiConfig.upiId}</span>
+                            {copiedUpi ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Next Step Button */}
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(totals.total.toFixed(2), "amount")}
-                        className="text-xs gap-1.5"
+                        variant="default"
+                        size="lg"
+                        className="w-full gap-2 text-sm font-semibold mt-2"
+                        onClick={() => {
+                          if (!name.trim()) {
+                            toast.error("Please enter your name above first");
+                            return;
+                          }
+                          setUpiStep(2);
+                        }}
                       >
-                        {copiedAmount ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>Copy Amount</span>
+                        <span>I Have Paid → Enter Transaction ID</span>
+                        <ArrowRight className="h-4 w-4" />
                       </Button>
                     </div>
-
-                    {/* Direct App Redirect Button */}
-                    <a
-                      href={upiIntentUrl}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold py-3 px-4 shadow-sm hover:bg-primary/90 transition text-sm text-center"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      <span>Tap to Open Google Pay / UPI App</span>
-                    </a>
-
-                    {/* Table QR / UPI ID Information Box */}
-                    <div className="rounded-xl border bg-card p-3.5 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Hotel UPI ID:</span>
+                  ) : (
+                    /* STEP 2: ENTER TRANSACTION ID / UTR */
+                    <div className="space-y-4 animate-in fade-in-50 duration-200">
+                      <div className="flex items-center justify-between pb-2 border-b">
+                        <div>
+                          <h3 className="font-semibold text-base text-foreground">Step 2: Enter Transaction ID / UTR</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Enter the 12-digit UTR from your Google Pay / Paytm payment screen
+                          </p>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => copyToClipboard(upiConfig.upiId, "upi")}
-                          className="font-mono font-medium text-foreground hover:text-primary inline-flex items-center gap-1.5 transition"
+                          onClick={() => setUpiStep(1)}
+                          className="text-xs text-primary hover:underline font-semibold"
                         >
-                          <span>{upiConfig.upiId}</span>
-                          {copiedUpi ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
+                          ← Change / Re-pay
                         </button>
                       </div>
-                      <div className="flex items-center justify-between pt-1 border-t text-muted-foreground">
-                        <span>Table Standee:</span>
-                        <span className="font-semibold text-foreground">Scan Google Pay QR on your table</span>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="checkout-utr" className="text-sm font-semibold text-foreground">
+                            12-digit UPI UTR / Transaction ID <span className="text-rose-500">*</span>
+                          </Label>
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {utr.replace(/\D/g, "").length}/12 digits
+                          </span>
+                        </div>
+
+                        <Input
+                          id="checkout-utr"
+                          placeholder="e.g. 430128492019"
+                          value={utr}
+                          onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                          maxLength={12}
+                          className="font-mono text-base tracking-wider bg-background"
+                          autoFocus
+                          required
+                        />
+
+                        <p className="text-xs text-muted-foreground">
+                          Look for <strong>UPI Ref No.</strong> or <strong>UTR</strong> on your Google Pay / Paytm receipt.
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                        <span>
+                          <strong>Staff Verification:</strong> Food order is sent to the admin dashboard. Kitchen accepts the order only after staff confirms this transaction.
+                        </span>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Step 2: Transaction ID / UTR Input */}
-                  <div className="space-y-2.5 pt-3 border-t">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="checkout-utr" className="text-sm font-semibold text-foreground">
-                        Step 2: Enter Transaction ID / UTR <span className="text-rose-500">*</span>
-                      </Label>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {utr.replace(/\D/g, "").length}/12 digits
-                      </span>
-                    </div>
-
-                    <Input
-                      id="checkout-utr"
-                      placeholder="e.g. 430128492019"
-                      value={utr}
-                      onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-                      maxLength={12}
-                      className="font-mono text-base tracking-wider bg-background"
-                      required
-                    />
-
-                    <p className="text-xs text-muted-foreground">
-                      After paying on Google Pay or scanning the table standee, enter the <strong>12-digit UTR</strong> from your payment screen.
-                    </p>
-
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
-                      <span>
-                        <strong>Kitchen Notice:</strong> The order request will be sent to the admin only after you submit your Transaction ID. Staff will verify the payment before preparing food.
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </section>
@@ -408,11 +474,13 @@ function CheckoutPage() {
               variant="hero"
               size="xl"
               className="w-full text-sm font-semibold"
-              disabled={submitting || (method === "upi" && utr.replace(/\D/g, "").length < 12)}
+              disabled={submitting || (method === "upi" && upiStep === 2 && utr.replace(/\D/g, "").length < 12)}
             >
               {submitting && <Loader2 className="animate-spin mr-2" />}
               {method === "counter"
                 ? "Place Order (Pay at Counter)"
+                : upiStep === 1
+                ? "I Have Paid → Enter UTR"
                 : utr.replace(/\D/g, "").length < 12
                 ? "Enter 12-digit UTR to Place Order"
                 : `Submit Transaction ID & Place Order (${formatINR(totals.total)})`}
