@@ -68,12 +68,13 @@ export function UpiPaymentDialog({
     }
   }, [open]);
 
-  // Standard UPI Intent URL with prefilled merchant VPA, exact amount, currency, and unique transaction reference
+  // Clean NPCI UPI URL:
+  // Note: Avoid 'tr=' parameter for personal/standard VPAs (@okhdfcbank) as NPCI risk filters
+  // (Paytm Protect / PhonePe) flag 'tr' on non-registered corporate aggregator accounts.
+  const cleanNote = `SaviRasa Order ${tableLabel}`.slice(0, 30);
   const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(config.upiId)}&pn=${encodeURIComponent(
     config.upiName
-  )}&am=${amount.toFixed(2)}&cu=INR&tr=${encodeURIComponent(upiRef)}&tn=${encodeURIComponent(
-    `Order ${upiRef} ${tableLabel}`
-  )}`;
+  )}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
 
   const copyToClipboard = (text: string, type: "upi" | "ref") => {
     navigator.clipboard?.writeText(text);
