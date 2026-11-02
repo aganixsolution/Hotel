@@ -29,16 +29,31 @@ export function StatusBadge({ status, className }: { status: OrderStatus; classN
 }
 
 export function PaymentBadge({ status }: { status: PaymentStatus }) {
+  let badgeStyle = "border-warning/40 text-warning bg-warning/5";
+  let label = "Unpaid";
+
+  if (status === "paid") {
+    badgeStyle = "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10";
+    label = "Paid";
+  } else if (status === "awaiting_verification") {
+    badgeStyle = "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10";
+    label = "Awaiting Verification";
+  } else if (status === "failed") {
+    badgeStyle = "border-destructive/40 text-destructive bg-destructive/5";
+    label = "Payment Failed";
+  } else if (status === "pending") {
+    badgeStyle = "border-muted text-muted-foreground";
+    label = "Pending";
+  }
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-        status === "paid"
-          ? "border-success/40 text-success"
-          : "border-warning/40 text-warning",
+        badgeStyle,
       )}
     >
-      {status === "paid" ? "Paid" : "Unpaid"}
+      {label}
     </span>
   );
 }

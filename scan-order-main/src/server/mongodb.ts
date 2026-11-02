@@ -245,7 +245,7 @@ export async function saveMongoState(key: string, value: any): Promise<boolean> 
           { upsert: true }
         );
 
-        // Record in payment history collection (Razorpay ready)
+        // Record in payment history collection
         await paymentsCol.updateOne(
           { orderId: order.id },
           {
@@ -261,12 +261,10 @@ export async function saveMongoState(key: string, value: any): Promise<boolean> 
               paymentMethod: order.paymentMethod,
               paymentStatus: order.paymentStatus,
               paymentRef: order.paymentRef || null,
-              // Prepared fields for Razorpay integration
-              razorpay: {
-                orderId: order.razorpayOrderId || null,
-                paymentId: order.razorpayPaymentId || null,
-                signature: order.razorpaySignature || null,
-              },
+              upiTransactionReference: order.upiTransactionReference || order.paymentRef || null,
+              providerTransactionId: order.providerTransactionId || null,
+              verifiedAt: order.verifiedAt || null,
+              verifiedBy: order.verifiedBy || null,
               createdAt: order.createdAt,
               updatedAt: timestamp,
             },

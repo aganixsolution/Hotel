@@ -36,7 +36,7 @@ export interface CartLine {
 export type OrderStatus = "pending" | "accepted" | "preparing" | "ready" | "served" | "cancelled";
 
 export type PaymentMethod = "upi" | "card" | "counter";
-export type PaymentStatus = "paid" | "unpaid";
+export type PaymentStatus = "pending" | "awaiting_verification" | "paid" | "failed" | "unpaid";
 
 export interface OrderLine {
   itemId: string;
@@ -60,12 +60,23 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   paymentRef?: string | undefined;
+  upiTransactionReference?: string | undefined;
+  providerTransactionId?: string | undefined;
+  verifiedAt?: number | undefined;
+  verifiedBy?: string | undefined;
   razorpayOrderId?: string | undefined;
   razorpayPaymentId?: string | undefined;
   razorpaySignature?: string | undefined;
   status: OrderStatus;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface HotelUpiConfig {
+  upiId: string;
+  upiName: string;
+  qrImage: string;
+  provider: string;
 }
 
 export interface HotelInfo {

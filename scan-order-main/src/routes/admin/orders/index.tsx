@@ -72,6 +72,31 @@ function OrdersPage() {
     }
   };
 
+  // Handle UPI payment verification
+  const handleVerifyPayment = async (orderId: string) => {
+    setIsLoading(true);
+    try {
+      ordersStore.update((ordersList: Order[]) => {
+        return ordersList.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                paymentStatus: "paid",
+                status: order.status === "pending" ? "accepted" : order.status,
+                verifiedAt: Date.now(),
+                verifiedBy: "Admin",
+                updatedAt: Date.now(),
+              }
+            : order
+        );
+      });
+    } catch (err) {
+      console.error("Failed to verify payment:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AdminLayout
       title="Live Kitchen Orders"
@@ -208,15 +233,32 @@ function OrdersPage() {
                           <Badge variant="outline" className="text-[10px] w-fit uppercase">
                             {order.paymentMethod}
                           </Badge>
-                          <Badge
-                            className={`text-[10px] w-fit ${
-                              order.paymentStatus === "paid"
-                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-300"
-                                : "bg-rose-500/10 text-rose-600 border-rose-300"
-                            }`}
-                          >
-                            {order.paymentStatus.toUpperCase()}
-                          </Badge>
+                          {order.paymentStatus === "awaiting_verification" ? (
+                            <Badge className="text-[10px] w-fit bg-amber-500/15 text-amber-600 border-amber-300 font-semibold gap-1">
+                              <Clock className="h-2.5 w-2.5 animate-pulse" />
+                              <span>VERIFY UPI</span>
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className={`text-[10px] w-fit ${
+                                order.paymentStatus === "paid"
+                                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-300"
+                                  : "bg-rose-500/10 text-rose-600 border-rose-300"
+                              }`}
+                            >
+                              {order.paymentStatus.toUpperCase()}
+                            </Badge>
+                          )}
+                          {order.upiTransactionReference && (
+                            <span className="text-[9px] font-mono text-muted-foreground truncate max-w-[110px]" title={order.upiTransactionReference}>
+                              {order.upiTransactionReference}
+                            </span>
+                          )}
+                          {order.providerTransactionId && (
+                            <span className="text-[9px] font-mono text-emerald-600 truncate max-w-[110px]" title={`UTR: ${order.providerTransactionId}`}>
+                              UTR: {order.providerTransactionId}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -246,7 +288,16 @@ function OrdersPage() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[180px]">
+                          <DropdownMenuContent align="end" className="w-[190px]">
+                            {order.paymentStatus === "awaiting_verification" && (
+                              <DropdownMenuItem
+                                onClick={() => handleVerifyPayment(order.id)}
+                                className="flex items-center gap-2 text-emerald-600 font-semibold focus:text-emerald-700"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Verify UPI Payment</span>
+                              </DropdownMenuItem>
+                            )}
                             {order.status === "pending" && (
                               <>
                                 <DropdownMenuItem

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ReceiptText, XCircle } from "lucide-react";
+import { Plus, ReceiptText, XCircle, Clock, CheckCircle2 } from "lucide-react";
 import { BillSummary } from "@/components/shared/BillSummary";
 import { FullPageMessage, LoadingScreen } from "@/components/shared/FullPageMessage";
 import { PaymentBadge, StatusBadge } from "@/components/shared/StatusBadge";
@@ -70,6 +70,39 @@ function OrderPage() {
         </div>
 
         <section className="mt-8 rounded-2xl border bg-card p-6">
+          {order.paymentStatus === "awaiting_verification" && (
+            <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 animate-pulse" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm text-foreground">
+                    UPI Payment Awaiting Staff Verification
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your UPI payment submission has been received. Restaurant staff is verifying the transaction on Google Pay. The kitchen will accept the order once confirmed.
+                  </p>
+                  {order.upiTransactionReference && (
+                    <div className="mt-2 text-xs font-mono text-foreground bg-background/60 px-2 py-1 rounded inline-flex items-center gap-2">
+                      <span>Ref: <strong>{order.upiTransactionReference}</strong></span>
+                      {order.providerTransactionId && (
+                        <span>· UTR: <strong>{order.providerTransactionId}</strong></span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {order.paymentStatus === "paid" && (
+            <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-left">
+              <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="text-sm font-semibold">Order Placed Successfully — Payment Verified</span>
+              </div>
+            </div>
+          )}
+
           {order.status === "cancelled" ? (
             <div className="flex items-center gap-3 text-destructive">
               <XCircle className="size-6" />

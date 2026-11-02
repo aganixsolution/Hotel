@@ -34,6 +34,7 @@ function AdminDashboard() {
   const paidOrders = orders.filter((o) => o.paymentStatus === "paid");
   const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
 
+  const awaitingUpiOrders = orders.filter((o) => o.paymentStatus === "awaiting_verification");
   const unpaidCounterOrders = orders.filter(
     (o) => o.paymentMethod === "counter" && o.paymentStatus === "unpaid"
   );
@@ -98,7 +99,7 @@ function AdminDashboard() {
             <CardContent>
               <div className="text-3xl font-bold font-display">₹{totalRevenue.toFixed(2)}</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {paidOrders.length} paid orders ({unpaidCounterOrders.length} unpaid at counter)
+                {paidOrders.length} paid · {awaitingUpiOrders.length} awaiting UPI verify · {unpaidCounterOrders.length} counter unpaid
               </p>
             </CardContent>
           </Card>
@@ -205,11 +206,18 @@ function AdminDashboard() {
                 <div className="rounded-xl bg-success/10 p-2.5 text-success">
                   <IndianRupee className="h-5 w-5" />
                 </div>
-                {unpaidCounterOrders.length > 0 && (
-                  <Badge variant="outline" className="border-warning text-warning">
-                    {unpaidCounterOrders.length} Unpaid
-                  </Badge>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {awaitingUpiOrders.length > 0 && (
+                    <Badge className="bg-amber-500/15 text-amber-600 border-amber-300 animate-pulse text-[10px]">
+                      {awaitingUpiOrders.length} Verify UPI
+                    </Badge>
+                  )}
+                  {unpaidCounterOrders.length > 0 && (
+                    <Badge variant="outline" className="border-warning text-warning text-[10px]">
+                      {unpaidCounterOrders.length} Unpaid
+                    </Badge>
+                  )}
+                </div>
               </div>
               <h3 className="mt-4 font-semibold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
                 <span>Payment Tracking</span>

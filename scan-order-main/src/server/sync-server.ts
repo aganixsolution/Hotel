@@ -9,7 +9,6 @@ import {
   resetMongoState,
   checkMongoHealth,
 } from "./mongodb";
-import { createRazorpayOrder, verifyRazorpaySignature } from "./razorpay";
 
 export interface SyncState {
   orders: any[];
@@ -20,11 +19,41 @@ export interface SyncState {
   timestamp: number;
 }
 
-const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+export function getHotelUpiConfig() {
+  const readEnv = (key: string) => {
+    if (process.env[key]) return process.env[key];
+    try {
+      const candidates = [
+        path.resolve(process.cwd(), ".env"),
+        path.resolve(process.cwd(), "scan-order-main", ".env"),
+        path.resolve(process.cwd(), "..", ".env"),
+      ];
+      for (const file of candidates) {
+        if (fs.existsSync(file)) {
+          const text = fs.readFileSync(file, "utf-8");
+          const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+)$`, "m"));
+          if (m?.[1]) return m[1].trim().replace(/^["']|["']$/g, "");
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return undefined;
+  };
+
+  return {
+    upiId: readEnv("HOTEL_UPI_ID") || "gafargafar456456@okhdfcbank",
+    upiName: readEnv("HOTEL_UPI_NAME") || "Gafar H",
+    qrImage: readEnv("HOTEL_UPI_QR_IMAGE") || "/images/gpay-merchant-qr.jpg",
+    provider: readEnv("UPI_PAYMENT_PROVIDER") || "google_pay",
+  };
+}
+
+const KV_URL = process.env["KV_REST_API_URL"] || process.env["UPSTASH_REDIS_REST_URL"];
+const KV_TOKEN = process.env["KV_REST_API_TOKEN"] || process.env["UPSTASH_REDIS_REST_TOKEN"];
 
 // On Vercel serverless, root fs is read-only, use os.tmpdir()
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const isServerless = Boolean(process.env["VERCEL"] || process.env["AWS_LAMBDA_FUNCTION_NAME"]);
 const STORE_PATH = isServerless
   ? path.resolve(os.tmpdir(), "savirasa-live-store.json")
   : path.resolve(process.cwd(), "src/data/live-store.json");
@@ -132,7 +161,7 @@ export async function handleSyncApi(
   hostHeader = ""
 ) {
   const ip = getNetworkIp();
-  const isVercel = Boolean(process.env.VERCEL);
+  const isVercel = Boolean(process.env["VERCEL"]);
 
   const json = (status: number, data: unknown) => ({
     status,
@@ -140,26 +169,32 @@ export async function handleSyncApi(
     body: JSON.stringify(data),
   });
 
-  if (pathname === "/api/razorpay/order" && method === "POST") {
-    try {
-      const { amount, tableId, customerName } = JSON.parse(bodyText || "{}");
-      const order = await createRazorpayOrder(Number(amount), `tbl_${tableId}_${Date.now()}`, {
-        tableId: String(tableId ?? ""),
-        customerName: String(customerName ?? ""),
-      });
-      return json(200, order);
-    } catch (err: any) {
-      return json(400, { error: err.message });
-    }
+  if (pathname === "/api/upi-config") {
+    return json(200, getHotelUpiConfig());
   }
 
-  if (pathname === "/api/razorpay/verify" && method === "POST") {
+  if (pathname === "/api/verify-payment" && method === "POST") {
     try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = JSON.parse(bodyText || "{}");
-      const ok = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-      return json(ok ? 200 : 400, ok ? { verified: true } : { verified: false, error: "Invalid payment signature" });
+      const { orderId, verifiedBy } = JSON.parse(bodyText || "{}");
+      if (!orderId) return json(400, { error: "orderId required" });
+      const order = currentState.orders.find((o) => o.id === orderId);
+      if (order) {
+        order.paymentStatus = "paid";
+        order.status = "accepted";
+        order.verifiedAt = Date.now();
+        order.verifiedBy = verifiedBy || "Admin";
+        order.updatedAt = Date.now();
+        currentState.timestamp = Date.now();
+        saveState(currentState);
+        if (isMongoConfigured()) {
+          await saveMongoState("orders", currentState.orders);
+        }
+        await setKvState(currentState);
+        return json(200, { ok: true, order });
+      }
+      return json(404, { error: "Order not found" });
     } catch (err: any) {
-      return json(400, { verified: false, error: err.message });
+      return json(400, { error: err.message });
     }
   }
 

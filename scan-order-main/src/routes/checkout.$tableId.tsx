@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, ShoppingBag, Smartphone, Store } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { payWithRazorpayUpi, type RazorpaySuccess } from "@/lib/razorpay";
+import { UpiPaymentDialog } from "@/components/checkout/UpiPaymentDialog";
 import { BillSummary } from "@/components/shared/BillSummary";
 import { FullPageMessage, LoadingScreen } from "@/components/shared/FullPageMessage";
 import { VegMark } from "@/components/shared/VegMark";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { getCartStore, hotelStore, menuStore, tablesStore } from "@/lib/app-store";
 import { formatINR } from "@/lib/format";
-import { placeOrder } from "@/lib/orders";
+import { placeOrder, generateUpiRef } from "@/lib/orders";
 import { calculateTotals, resolveCart } from "@/lib/pricing";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/checkout/$tableId")({
 });
 
 const METHODS: { id: PaymentMethod; title: string; text: string; icon: typeof Smartphone }[] = [
-  { id: "upi", title: "UPI", text: "GPay, PhonePe, Paytm, BHIM — secured by Razorpay", icon: Smartphone },
+  { id: "upi", title: "Google Pay / Direct UPI", text: "Pay directly via GPay, PhonePe, Paytm QR or App", icon: Smartphone },
   { id: "counter", title: "Cash at counter", text: "Pay cash when you leave", icon: Store },
 ];
 
@@ -53,6 +53,8 @@ function CheckoutPage() {
   const [instructions, setInstructions] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("upi");
   const [submitting, setSubmitting] = useState(false);
+  const [upiDialogOpen, setUpiDialogOpen] = useState(false);
+  const [currentUpiRef, setCurrentUpiRef] = useState(() => generateUpiRef());
 
   const table = tables.find((t) => t.id === tableId);
   const lines = resolveCart(cart, menu);
@@ -81,7 +83,7 @@ function CheckoutPage() {
     );
   }
 
-  const finish = (rzp?: RazorpaySuccess) => {
+  const finish = (paymentDetails?: { upiRef?: string | undefined; utr?: string | undefined }) => {
     try {
       const order = placeOrder({
         tableId,
@@ -89,12 +91,18 @@ function CheckoutPage() {
         phone,
         instructions,
         paymentMethod: method,
-        paymentRef: rzp?.razorpay_payment_id,
-        razorpayOrderId: rzp?.razorpay_order_id,
-        razorpayPaymentId: rzp?.razorpay_payment_id,
-        razorpaySignature: rzp?.razorpay_signature,
+        paymentRef: paymentDetails?.upiRef,
+        upiTransactionReference: paymentDetails?.upiRef,
+        providerTransactionId: paymentDetails?.utr,
       });
-      toast.success(`Order ${order.id} sent to the kitchen`);
+
+      if (method === "upi") {
+        toast.success(`Order ${order.id} submitted for payment verification!`);
+      } else {
+        toast.success(`Order ${order.id} sent to the kitchen!`);
+      }
+
+      setUpiDialogOpen(false);
       navigate({ to: "/order/$orderId", params: { orderId: order.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not place order");
@@ -108,25 +116,17 @@ function CheckoutPage() {
       toast.error("Please enter your name");
       return;
     }
-    setSubmitting(true);
+
     if (method === "counter") {
-      window.setTimeout(() => finish(), 500);
+      setSubmitting(true);
+      window.setTimeout(() => finish(), 400);
       return;
     }
-    try {
-      const rzp = await payWithRazorpayUpi({
-        amount: totals.total,
-        tableId,
-        merchantName: hotel.name,
-        customerName: name.trim(),
-        phone: phone.trim(),
-      });
-      toast.success("Payment successful");
-      finish(rzp);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Payment failed");
-      setSubmitting(false);
-    }
+
+    // Direct UPI: generate fresh ref and open payment dialog
+    const freshRef = generateUpiRef();
+    setCurrentUpiRef(freshRef);
+    setUpiDialogOpen(true);
   };
 
   return (
@@ -219,6 +219,18 @@ function CheckoutPage() {
           </aside>
         </form>
       </div>
+
+      <UpiPaymentDialog
+        open={upiDialogOpen}
+        onOpenChange={setUpiDialogOpen}
+        amount={totals.total}
+        tableLabel={table.label}
+        customerName={name}
+        upiRef={currentUpiRef}
+        onConfirmPayment={(paymentDetails) => {
+          finish(paymentDetails);
+        }}
+      />
     </div>
   );
 }

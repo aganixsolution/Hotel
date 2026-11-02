@@ -21,14 +21,21 @@ export const NEXT_ACTION: Partial<Record<OrderStatus, string>> = {
 };
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  upi: "UPI (Razorpay)",
-  card: "Card (online)",
+  upi: "Google Pay / UPI",
+  card: "Card",
   counter: "Cash at counter",
 };
 
 export function nextStatus(status: OrderStatus): OrderStatus | null {
   const i = STATUS_FLOW.indexOf(status);
   return i >= 0 && i < STATUS_FLOW.length - 1 ? (STATUS_FLOW[i + 1] ?? null) : null;
+}
+
+/** Generate unique UPI transaction reference */
+export function generateUpiRef(orderId?: string): string {
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const cleanId = orderId ? orderId.replace(/\D/g, "") : Date.now().toString().slice(-4);
+  return `UPI-${cleanId}-${randomSuffix}`;
 }
 
 /** Next sequential order number, e.g. AGX-1044 after AGX-1043. */
@@ -47,9 +54,8 @@ export interface PlaceOrderInput {
   instructions?: string | undefined;
   paymentMethod: PaymentMethod;
   paymentRef?: string | undefined;
-  razorpayOrderId?: string | undefined;
-  razorpayPaymentId?: string | undefined;
-  razorpaySignature?: string | undefined;
+  upiTransactionReference?: string | undefined;
+  providerTransactionId?: string | undefined;
 }
 
 export function placeOrder(input: PlaceOrderInput): Order {
@@ -61,10 +67,21 @@ export function placeOrder(input: PlaceOrderInput): Order {
   const table = tablesStore.get().find((t) => t.id === input.tableId);
   const totals = calculateTotals(lines, hotel.taxPercent);
   const now = Date.now();
-  const isOnline = input.paymentMethod !== "counter";
+  const nextId = nextOrderId(ordersStore.get());
+
+  // Determine initial payment status:
+  // UPI direct transfer requires admin verification against GPay/bank records
+  // Counter orders remain unpaid until collected at counter
+  const initialPaymentStatus =
+    input.paymentMethod === "upi" ? "awaiting_verification" : "unpaid";
+
+  const upiRef =
+    input.paymentMethod === "upi"
+      ? input.upiTransactionReference || generateUpiRef(nextId)
+      : undefined;
 
   const order: Order = {
-    id: nextOrderId(ordersStore.get()),
+    id: nextId,
     tableId: input.tableId,
     tableLabel: table?.label ?? input.tableId,
     customerName: input.customerName.trim() || "Guest",
@@ -81,11 +98,10 @@ export function placeOrder(input: PlaceOrderInput): Order {
     tax: totals.tax,
     total: totals.total,
     paymentMethod: input.paymentMethod,
-    paymentStatus: isOnline ? "paid" : "unpaid",
-    paymentRef: input.paymentRef,
-    razorpayOrderId: input.razorpayOrderId,
-    razorpayPaymentId: input.razorpayPaymentId,
-    razorpaySignature: input.razorpaySignature,
+    paymentStatus: initialPaymentStatus,
+    paymentRef: input.paymentRef || upiRef,
+    upiTransactionReference: upiRef,
+    providerTransactionId: input.providerTransactionId?.trim() || undefined,
     status: "pending",
     createdAt: now,
     updatedAt: now,
@@ -103,5 +119,15 @@ export function updateOrder(id: string, patch: Partial<Order>) {
 }
 
 export const setOrderStatus = (id: string, status: OrderStatus) => updateOrder(id, { status });
+
 export const markOrderPaid = (id: string) =>
   updateOrder(id, { paymentStatus: "paid", paymentRef: `COUNTER-${Date.now().toString().slice(-6)}` });
+
+export const verifyUpiOrderPayment = (id: string, verifiedBy: string = "Admin") => {
+  updateOrder(id, {
+    paymentStatus: "paid",
+    status: "accepted",
+    verifiedAt: Date.now(),
+    verifiedBy,
+  });
+};
