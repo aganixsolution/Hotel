@@ -35,7 +35,7 @@ export const Route = createFileRoute("/checkout/$tableId")({
 });
 
 const METHODS: { id: PaymentMethod; title: string; text: string; icon: typeof Smartphone }[] = [
-  { id: "upi", title: "Google Pay / Direct UPI", text: "Pay directly via GPay, PhonePe, Paytm QR or App", icon: Smartphone },
+  { id: "upi", title: "Scan UPI QR Code", text: "Scan & pay with Google Pay, PhonePe, or Paytm", icon: Smartphone },
   { id: "counter", title: "Cash at counter", text: "Pay cash when you leave", icon: Store },
 ];
 
@@ -214,7 +214,7 @@ function CheckoutPage() {
             <BillSummary {...totals} taxPercent={hotel.taxPercent} className="border-t pt-4" />
             <Button type="submit" variant="hero" size="xl" className="w-full" disabled={submitting}>
               {submitting && <Loader2 className="animate-spin" />}
-              {method === "counter" ? "Place order" : `Pay ${formatINR(totals.total)}`}
+              {method === "counter" ? "Place order" : `Scan QR to Pay ${formatINR(totals.total)}`}
             </Button>
           </aside>
         </form>
